@@ -1,11 +1,9 @@
 """ROBOYORK CONTROL SYSTEM - interfaz gráfica (tkinter).
-Ejecutar: python gui.py
-Reutiliza la lógica de usuarios, recursos, eventos y reportes; la GUI solo
-muestra datos y llama a esas funciones (nada de input()/print() aquí).
+Ejecutar: python gui.py   (o python main.py)
+La GUI solo muestra datos y llama a la lógica de usuarios, eventos y reportes.
 """
-import random
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import messagebox, filedialog, simpledialog
 
 import usuarios
 import recursos
@@ -13,68 +11,111 @@ import eventos
 import reportes
 from main import crear_mision
 
-FINALES = ("RESUELTA", "FALLIDA")
-COLORES_ESTADO = {
-    "INICIALIZANDO": "#888888", 
-    "OPERATIVA": "#2e7d32", 
-    "ALERTA": "#f9a825",
-    "CRÍTICA": "#c62828", 
-    "RESUELTA": "#1565c0", 
-    "FALLIDA": "#4e342e"
-}
+# ---------- tema ----------
+F = "Segoe UI"
+BG, PANEL, PANEL2 = "#0b1220", "#151f33", "#1f2d47"
+TEXTO, MUTED, ACENTO = "#e6edf7", "#8aa0bf", "#38bdf8"
+VERDE, AMBAR, ROJO = "#22c55e", "#f59e0b", "#ef4444"
+COLORES_ESTADO = {"INICIALIZANDO": "#64748b", "OPERATIVA": "#16a34a", "ALERTA": "#d97706",
+                  "CRÍTICA": "#dc2626", "RESUELTA": "#2563eb", "FALLIDA": "#7c2d12"}
+ICONOS = {"Energía": "⚡", "Agua": "💧", "Alimentos": "🍞", "Comunicación": "📡"}
+DESC_DIF = {"Fácil": "Más recursos y menos castigo",
+            "Normal": "Equilibrada",
+            "Difícil": "Recursos escasos, desgaste y más riesgo"}
+
+
+def aclarar(c):
+    n = int(c[1:], 16)
+    return "#%02x%02x%02x" % tuple(min(255, x + 28) for x in (n >> 16 & 255, n >> 8 & 255, n & 255))
+
+
+def boton(parent, texto, cmd, bg=PANEL2, fg=TEXTO, **kw):
+    """Botón plano con efecto hover."""
+    b = tk.Button(parent, text=texto, command=cmd, bg=bg, fg=fg, relief="flat", bd=0,
+                  font=(F, 10, "bold"), cursor="hand2", padx=14, pady=8, activebackground=aclarar(bg),
+                  activeforeground=fg, **kw)
+    b.bind("<Enter>", lambda _e: b.config(bg=aclarar(bg)))
+    b.bind("<Leave>", lambda _e: b.config(bg=bg))
+    return b
+
+
+class Barra(tk.Canvas):
+    """Barra de progreso animada que cambia de color según el nivel."""
+
+    def __init__(self, master):
+        super().__init__(master, height=12, bg=PANEL2, highlightthickness=0)
+        self.valor, self.objetivo, self._job = 0, 0, None
+        self.bind("<Configure>", lambda _e: self._dibujar())
+
+    def poner(self, v):
+        self.objetivo = v
+        if self._job:
+            self.after_cancel(self._job)
+        self._animar()
+
+    def _animar(self):
+        delta = self.objetivo - self.valor
+        if delta:
+            self.valor += (1 if delta > 0 else -1) * min(abs(delta), 3)
+            self._job = self.after(14, self._animar)
+        self._dibujar()
+
+    def _dibujar(self):
+        self.delete("all")
+        color = VERDE if self.valor >= 60 else AMBAR if self.valor >= 30 else ROJO
+        self.create_rectangle(0, 0, self.winfo_width() * self.valor / 100, 12, fill=color, width=0)
 
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("ROBOYORK CONTROL SYSTEM")
-        self.geometry("720x520")
-        self.minsize(640, 480)
-        self.operador = None
-        self.mision = None
+        self.geometry("1000x700")
+        self.minsize(900, 640)
+        self.configure(bg=BG)
+        self.operador = self.mision = None
         self.intentos = 0
-        self.contenedor = ttk.Frame(self, padding=14)
+        self.contenedor = tk.Frame(self, bg=BG)
         self.contenedor.pack(fill="both", expand=True)
         self.pantalla_login()
 
-    # ---------- utilidades ----------
-    def limpiar(self):
-        for w in self.contenedor.winfo_children():
-            w.destroy()
+    def limpiar(self, w=None):
+        for h in (w or self.contenedor).winfo_children():
+            h.destroy()
 
-    # ---------- pantalla de login ----------
+    def etiqueta(self, parent, texto, size=10, color=TEXTO, bold=False, bg=None, **kw):
+        return tk.Label(parent, text=texto, fg=color, bg=bg or parent["bg"],
+                        font=(F, size, "bold" if bold else "normal"), **kw)
+
+    # ---------- login ----------
     def pantalla_login(self):
         self.limpiar()
         self.intentos = 0
-        f = ttk.Frame(self.contenedor)
-        f.place(relx=0.5, rely=0.45, anchor="center")
-        ttk.Label(f, text="ROBOYORK CONTROL SYSTEM",
-                  font=("Segoe UI", 16, "bold")).grid(row=0, column=0, columnspan=2, pady=(0, 14))
-        ttk.Label(f, text="Usuario:").grid(row=1, column=0, sticky="e", pady=4)
-        ttk.Label(f, text="Contraseña:").grid(row=2, column=0, sticky="e", pady=4)
-        self.var_user = tk.StringVar()
-        self.var_pass = tk.StringVar()
-        e_user = ttk.Entry(f, textvariable=self.var_user, width=24)
-        e_pass = ttk.Entry(f, textvariable=self.var_pass, width=24, show="•")
-        e_user.grid(row=1, column=1, padx=6)
-        e_pass.grid(row=2, column=1, padx=6)
-        e_user.focus()
-        e_pass.bind("<Return>", lambda _e: self.hacer_login())
-        ttk.Button(f, text="Iniciar sesión", command=self.hacer_login).grid(
-            row=3, column=0, columnspan=2, sticky="ew", pady=(12, 4))
-        ttk.Button(f, text="Crear operador", command=self.hacer_registro).grid(
-            row=4, column=0, columnspan=2, sticky="ew")
+        card = tk.Frame(self.contenedor, bg=PANEL, padx=40, pady=32)
+        card.place(relx=0.5, rely=0.5, anchor="center")
+        self.etiqueta(card, "🤖", 36).pack()
+        self.etiqueta(card, "ROBOYORK", 20, ACENTO, True).pack()
+        self.etiqueta(card, "CONTROL SYSTEM", 10, MUTED).pack(pady=(0, 18))
+        self.var_user, self.var_pass = tk.StringVar(), tk.StringVar()
+        for texto, var, oculto in (("Usuario", self.var_user, ""), ("Contraseña", self.var_pass, "•")):
+            self.etiqueta(card, texto, 9, MUTED, anchor="w").pack(fill="x")
+            e = tk.Entry(card, textvariable=var, show=oculto, width=28, bg=PANEL2, fg=TEXTO, relief="flat",
+                         insertbackground=TEXTO, font=(F, 11), highlightthickness=1,
+                         highlightbackground=PANEL2, highlightcolor=ACENTO)
+            e.pack(pady=(2, 12), ipady=6)
+            if not oculto:
+                e.focus()
+        e.bind("<Return>", lambda _e: self.hacer_login())
+        boton(card, "Iniciar sesión", self.hacer_login, ACENTO, "#04121f").pack(fill="x")
+        boton(card, "Crear operador", self.hacer_registro).pack(fill="x", pady=(8, 0))
 
     def hacer_login(self):
-        user = self.var_user.get().strip()
-        clave = self.var_pass.get()
+        user, clave = self.var_user.get().strip(), self.var_pass.get()
         if not user or not clave:
-            messagebox.showwarning("Datos incompletos", "Escribe usuario y contraseña.")
-            return
+            return messagebox.showwarning("Datos incompletos", "Escribe usuario y contraseña.")
         if usuarios.operadores.get(user) == clave:
             self.operador = user
-            self.pantalla_panel()
-            return
+            return self.pantalla_panel()
         self.intentos += 1
         restantes = usuarios.MAX_INTENTOS - self.intentos
         if restantes <= 0:
@@ -85,217 +126,247 @@ class App(tk.Tk):
             self.var_pass.set("")
 
     def hacer_registro(self):
-        user = self.var_user.get().strip()
-        clave = self.var_pass.get()
+        user, clave = self.var_user.get().strip(), self.var_pass.get()
         if len(user) < 3 or len(clave) < 4:
-            messagebox.showwarning("Datos inválidos",
-                                   "Usuario mínimo 3 caracteres y contraseña mínimo 4.")
+            messagebox.showwarning("Datos inválidos", "Usuario mínimo 3 caracteres y contraseña mínimo 4.")
         elif user in usuarios.operadores:
             messagebox.showerror("Error", "Ese operador ya existe.")
         else:
             usuarios.operadores[user] = clave
             messagebox.showinfo("Listo", f"Operador '{user}' creado. Ya puedes iniciar sesión.")
 
-    # ---------- panel principal ----------
+    # ---------- dashboard ----------
     def pantalla_panel(self):
         self.limpiar()
-        self.contenedor.columnconfigure(1, weight=1)
-        self.contenedor.rowconfigure(0, weight=1)
+        c = self.contenedor
+        c.columnconfigure(1, weight=1)
+        c.rowconfigure(0, weight=1)
 
-        menu = ttk.Frame(self.contenedor)
-        menu.grid(row=0, column=0, sticky="ns", padx=(0, 14))
-        botones = [
-            ("1. Crear misión", self.accion_crear),
-            ("2. Consultar recursos", self.accion_recursos),
-            ("3. Procesar evento", self.accion_evento),
-            ("4. Ejecutar simulación", self.accion_simulacion),
-            ("5. Estadísticas", self.accion_estadisticas),
-            ("6. Ver historial", self.accion_historial),
-            ("7. Generar reporte", self.accion_reporte),
-            ("8. Cerrar sesión", self.accion_logout),
-        ]
-        for texto, cmd in botones:
-            ttk.Button(menu, text=texto, command=cmd, width=24).pack(pady=3, fill="x")
+        # barra lateral
+        lado = tk.Frame(c, bg=PANEL, width=210)
+        lado.grid(row=0, column=0, sticky="ns")
+        lado.pack_propagate(False)
+        self.etiqueta(lado, "🤖 ROBOYORK", 15, ACENTO, True).pack(pady=(22, 2))
+        self.etiqueta(lado, f"{self.operador} · {usuarios.rol(self.operador)}", 9, MUTED).pack(pady=(0, 20))
+        botones = [("＋  Nueva misión", self.accion_crear, ACENTO, "#04121f"),
+                   ("⚠  Procesar evento", self.accion_evento, PANEL2, TEXTO),
+                   ("▶  Simular", self.accion_simulacion, PANEL2, TEXTO),
+                   ("📄  Reporte", self.accion_reporte, PANEL2, TEXTO)]
+        if usuarios.es_admin(self.operador):  # permiso solo para el admin
+            botones.append(("👥  Operadores", self.accion_operadores, PANEL2, TEXTO))
+        for texto, cmd, bg, fg in botones:
+            boton(lado, texto, cmd, bg, fg, anchor="w").pack(fill="x", padx=14, pady=4)
+        boton(lado, "⏻  Cerrar sesión", self.accion_logout, "#3b1d24", "#fca5a5",
+              anchor="w").pack(side="bottom", fill="x", padx=14, pady=16)
 
-        self.vista = ttk.LabelFrame(self.contenedor, text=f"Operador: {self.operador}", padding=12)
-        self.vista.grid(row=0, column=1, sticky="nsew")
-        self.vista.columnconfigure(1, weight=1)
+        # zona principal
+        main = tk.Frame(c, bg=BG, padx=22, pady=18)
+        main.grid(row=0, column=1, sticky="nsew")
+        main.columnconfigure((0, 1), weight=1, uniform="a")
+        main.rowconfigure(4, weight=1)
 
-        self.lbl_estado = tk.Label(self.vista, text="SIN MISIÓN", fg="white",
-                                   bg="#888888", font=("Segoe UI", 12, "bold"), pady=4)
-        self.lbl_estado.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 10))
+        self.titulo = self.etiqueta(main, "Panel de misión", 16, TEXTO, True)
+        self.titulo.grid(row=0, column=0, sticky="w")
+        self.badge = tk.Label(main, text="SIN MISIÓN", fg="white", bg="#64748b",
+                              font=(F, 10, "bold"), padx=14, pady=4)
+        self.badge.grid(row=0, column=1, sticky="e")
 
+        # tarjetas de recursos
         self.barras = {}
-        for i, nombre in enumerate(recursos.RECURSOS_INICIALES, start=1):
-            ttk.Label(self.vista, text=nombre, width=13).grid(row=i, column=0, sticky="w", pady=6)
-            barra = ttk.Progressbar(self.vista, maximum=100, length=260)
-            barra.grid(row=i, column=1, sticky="ew", padx=6)
-            lbl = ttk.Label(self.vista, text="--", width=5)
-            lbl.grid(row=i, column=2)
+        for i, nombre in enumerate(recursos.NOMBRES):
+            card = tk.Frame(main, bg=PANEL, padx=14, pady=10)
+            card.grid(row=1 + i // 2, column=i % 2, sticky="ew", padx=(0, 8) if i % 2 == 0 else (8, 0), pady=6)
+            card.columnconfigure(0, weight=1)
+            self.etiqueta(card, f"{ICONOS[nombre]}  {nombre}", 10, MUTED).grid(row=0, column=0, sticky="w")
+            lbl = self.etiqueta(card, "--", 12, TEXTO, True)
+            lbl.grid(row=0, column=1)
+            barra = Barra(card)
+            barra.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
             self.barras[nombre] = (barra, lbl)
 
-        self.lbl_puntos = ttk.Label(self.vista, text="Puntos: 0   |   Eventos: 0",
-                                    font=("Segoe UI", 11))
-        self.lbl_puntos.grid(row=6, column=0, columnspan=3, pady=(14, 4), sticky="w")
-        self.lbl_msg = ttk.Label(self.vista, text="Crea una misión para comenzar.",
-                                 wraplength=380, justify="left")
-        self.lbl_msg.grid(row=7, column=0, columnspan=3, sticky="w")
+        # fila de métricas
+        fila = tk.Frame(main, bg=BG)
+        fila.grid(row=3, column=0, columnspan=2, sticky="ew", pady=4)
+        self.tiles = {}
+        for i, t in enumerate(("Puntos", "Eventos", "Eficiencia", "Riesgo")):
+            fila.columnconfigure(i, weight=1, uniform="t")
+            tile = tk.Frame(fila, bg=PANEL, padx=12, pady=8)
+            tile.grid(row=0, column=i, sticky="ew", padx=4)
+            self.etiqueta(tile, t.upper(), 8, MUTED).pack(anchor="w")
+            self.tiles[t] = self.etiqueta(tile, "--", 14, TEXTO, True)
+            self.tiles[t].pack(anchor="w")
+
+        # evento + historial
+        self.panel_evento = tk.Frame(main, bg=PANEL, padx=16, pady=12)
+        self.panel_evento.grid(row=4, column=0, sticky="nsew", padx=(0, 8), pady=(10, 0))
+        hist = tk.Frame(main, bg=PANEL, padx=12, pady=12)
+        hist.grid(row=4, column=1, sticky="nsew", padx=(8, 0), pady=(10, 0))
+        self.etiqueta(hist, "HISTORIAL", 8, MUTED).pack(anchor="w")
+        self.log = tk.Text(hist, bg=PANEL, fg=TEXTO, relief="flat", font=(F, 9), wrap="word",
+                           state="disabled", height=8, highlightthickness=0, cursor="arrow")
+        self.log.pack(fill="both", expand=True, pady=(4, 0))
+        self.log.tag_config("pos", foreground=VERDE)
+        self.log.tag_config("neg", foreground="#f87171")
+        self.mensaje("Crea una misión para comenzar.")
         self.refrescar()
 
     def refrescar(self):
-        """Actualiza barras, estado y puntos desde self.mision."""
         m = self.mision
-        if m is None:
-            return
         for nombre, (barra, lbl) in self.barras.items():
-            valor = m["recursos"][nombre]
-            barra["value"] = valor
-            lbl.config(text=f"{valor}%")
-        self.lbl_estado.config(text=f"ESTADO: {m['estado']}",
-                               bg=COLORES_ESTADO.get(m["estado"], "#888888"))
-        self.lbl_puntos.config(text=f"Puntos: {m['puntos']}   |   Eventos: {m['eventos_procesados']}")
+            barra.poner(m["recursos"][nombre] if m else 0)
+            lbl.config(text=f"{m['recursos'][nombre]}%" if m else "--")
+        self.titulo.config(text=f"Panel de misión · {m['dificultad']}" if m else "Panel de misión")
+        self.badge.config(text=m["estado"] if m else "SIN MISIÓN",
+                          bg=COLORES_ESTADO.get(m["estado"], "#64748b") if m else "#64748b")
+        self.log.config(state="normal")
+        self.log.delete("1.0", "end")
+        if m:
+            est = reportes.calcular_estadisticas(m)
+            riesgo, nivel = eventos.algoritmo_propio(m)
+            self.tiles["Puntos"].config(text=m["puntos"])
+            self.tiles["Eventos"].config(text=f"{m['eventos_procesados']}/{eventos.config_mision(m)['meta']}")
+            self.tiles["Eficiencia"].config(text=f"{est['Eficiencia (%)']}%")
+            self.tiles["Riesgo"].config(text=f"{riesgo} · {nivel}",
+                                        fg={"BAJO": VERDE, "MEDIO": AMBAR, "ALTO": ROJO}[nivel])
+            for i, a in enumerate(m["historial"], start=1):
+                tag = "pos" if "(+" in a else "neg" if "(-" in a or "FALLIDA" in a else ""
+                self.log.insert("end", f"{i}. {a}\n", tag)
+            self.log.see("end")
+        self.log.config(state="disabled")
 
-    def hay_mision(self):
-        if self.mision is None:
-            messagebox.showwarning("Sin misión", "Primero crea una misión (opción 1).")
-            return False
-        return True
+    def mensaje(self, titulo, detalle="", color=TEXTO):
+        """Muestra un mensaje en el panel de eventos."""
+        self.limpiar(self.panel_evento)
+        self.etiqueta(self.panel_evento, titulo, 12, color, True, wraplength=320, justify="left").pack(anchor="w")
+        if detalle:
+            self.etiqueta(self.panel_evento, detalle, 10, MUTED, wraplength=320,
+                          justify="left").pack(anchor="w", pady=4)
 
     def mision_activa(self):
-        if not self.hay_mision():
-            return False
-        if self.mision["estado"] in FINALES:
-            messagebox.showinfo("Misión terminada",
-                                f"La misión ya está {self.mision['estado']}. Crea una nueva.")
-            return False
-        return True
+        if self.mision is None:
+            messagebox.showwarning("Sin misión", "Primero crea una misión.")
+        elif self.mision["estado"] in eventos.FINALES:
+            messagebox.showinfo("Misión terminada", f"La misión ya está {self.mision['estado']}. Crea una nueva.")
+        else:
+            return True
+        return False
+
+    def pedir_dificultad(self):
+        """Diálogo modal con un botón por dificultad. Devuelve el nombre o None."""
+        res = []
+        win = tk.Toplevel(self, bg=PANEL, padx=24, pady=20)
+        win.title("Dificultad")
+        win.transient(self)
+        win.grab_set()
+        self.etiqueta(win, "Elige la dificultad", 13, TEXTO, True).pack(pady=(0, 10))
+        for nombre in eventos.DIFICULTADES:
+            boton(win, f"{nombre}  —  {DESC_DIF[nombre]}", lambda n=nombre: (res.append(n), win.destroy()),
+                  anchor="w").pack(fill="x", pady=3)
+        self.wait_window(win)
+        return res[0] if res else None
 
     # ---------- acciones ----------
     def accion_crear(self):
-        self.mision = None
+        previa, self.mision = self.mision, None
         if reportes.existe_progreso(self.operador) and messagebox.askyesno(
-                "Progreso guardado",
-                "Hay una misión guardada.\n¿Quieres continuarla?\n(No = empezar una nueva)"):
+                "Progreso guardado", "Hay una misión guardada.\n¿Quieres continuarla?\n(No = empezar una nueva)"):
             self.mision = reportes.cargar_progreso(self.operador)
-        if self.mision is None:
-            self.mision = crear_mision(self.operador)
-            self.lbl_msg.config(text="Misión creada. Estado: OPERATIVA.")
+        if self.mision is not None:
+            self.mensaje("Misión retomada", "Pulsa «Procesar evento» o «Simular».", VERDE)
         else:
-            self.lbl_msg.config(text=f"Misión retomada. Estado: {self.mision['estado']}.")
+            nivel = self.pedir_dificultad()
+            if nivel is None:  # canceló: se conserva la misión anterior
+                self.mision = previa
+                return
+            self.mision = crear_mision(self.operador, nivel)
+            self.mensaje(f"Misión creada · {nivel}", "Pulsa «Procesar evento» o «Simular».", VERDE)
         self.refrescar()
-
-    def accion_recursos(self):
-        if self.hay_mision():
-            self.refrescar()
-            self.lbl_msg.config(text="Recursos actualizados.")
 
     def accion_evento(self):
         if not self.mision_activa():
             return
-        evento = eventos.generar_evento(self.mision)
-        dlg = tk.Toplevel(self)
-        dlg.title("Evento")
-        dlg.transient(self)
-        dlg.grab_set()
-        f = ttk.Frame(dlg, padding=16)
-        f.pack()
-        ttk.Label(f, text=f"⚠ {evento['nombre']}", font=("Segoe UI", 13, "bold")).pack(pady=(0, 10))
-        ttk.Label(f, text="¿Qué decisión tomas?").pack(pady=(0, 8))
+        ev = eventos.generar_evento(self.mision)
+        self.mensaje(f"⚠ {ev['nombre']}", "¿Qué decisión tomas?", AMBAR)
+        for i, op in enumerate(ev["opciones"]):
+            boton(self.panel_evento, op["texto"], lambda i=i: self.elegir(ev, i),
+                  anchor="w", wraplength=320, justify="left").pack(fill="x", pady=3)
 
-        def elegir(i):
-            op = eventos.aplicar_opcion(self.mision, evento, i)
-            dlg.destroy()
-            signo = "+" if op["puntos"] >= 0 else ""
-            self.lbl_msg.config(text=f"{evento['nombre']}: {op['texto']} ({signo}{op['puntos']} pts)")
-            self.refrescar()
-            if self.mision["estado"] in FINALES:
-                messagebox.showinfo("Fin de misión", f"Estado final: {self.mision['estado']}")
-
-        for i, op in enumerate(evento["opciones"]):
-            ttk.Button(f, text=op["texto"], width=40,
-                       command=lambda i=i: elegir(i)).pack(pady=3)
+    def elegir(self, ev, i):
+        op = eventos.aplicar_opcion(self.mision, ev, i)
+        self.refrescar()
+        estado = self.mision["estado"]
+        if estado in eventos.FINALES:
+            self.mensaje(f"Misión {estado}", "Crea una nueva misión para seguir jugando.",
+                         VERDE if estado == "RESUELTA" else ROJO)
+        elif not op["exito"]:
+            self.mensaje(f"✖ La acción falló ({op['puntos']:+d} pts)", f"{ev['nombre']}: {op['texto']}", ROJO)
+        else:
+            self.mensaje(f"{op['puntos']:+d} pts", f"{ev['nombre']}: {op['texto']}",
+                         VERDE if op["puntos"] > 0 else ROJO)
 
     def accion_simulacion(self):
         if not self.mision_activa():
             return
-        # Pide N eventos con un diálogo propio (validado por rango del Spinbox).
-        dlg = tk.Toplevel(self)
-        dlg.title("Simulación")
-        dlg.transient(self)
-        dlg.grab_set()
-        f = ttk.Frame(dlg, padding=16)
-        f.pack()
-        ttk.Label(f, text="Número de eventos (1-20):").pack()
-        var = tk.StringVar(value="5")
-        ttk.Spinbox(f, from_=1, to=20, textvariable=var, width=6).pack(pady=8)
-
-        def correr():
-            try:
-                n = int(var.get())
-            except ValueError:
-                messagebox.showwarning("Inválido", "Escribe un número entero.", parent=dlg)
-                return
-            if not 1 <= n <= 20:
-                messagebox.showwarning("Fuera de rango", "Debe estar entre 1 y 20.", parent=dlg)
-                return
-            dlg.destroy()
-            for _ in range(n):
-                if self.mision["estado"] in FINALES:
-                    break
-                ev = eventos.generar_evento(self.mision)
-                eventos.aplicar_opcion(self.mision, ev, random.randrange(len(ev["opciones"])))
-            self.lbl_msg.config(text=f"Simulación completada ({n} eventos solicitados).")
+        n = simpledialog.askinteger("Simulación", "Número de eventos (1-20):",
+                                    minvalue=1, maxvalue=20, initialvalue=5, parent=self)
+        if n:
+            hechos = eventos.simular(self.mision, n)
+            self.mensaje("Simulación completada", f"{hechos} evento(s) ejecutados.", ACENTO)
             self.refrescar()
 
-        ttk.Button(f, text="Ejecutar", command=correr).pack()
-
-    def accion_estadisticas(self):
-        if not self.hay_mision():
-            return
-        est = reportes.calcular_estadisticas(self.mision)
-        texto = "\n".join(f"{k}: {v}" for k, v in est.items())
-        messagebox.showinfo("Estadísticas", texto)
-
-    def accion_historial(self):
-        if not self.hay_mision():
-            return
-        win = tk.Toplevel(self)
-        win.title("Historial")
-        win.geometry("460x320")
-        lista = tk.Listbox(win)
-        scroll = ttk.Scrollbar(win, command=lista.yview)
-        lista.config(yscrollcommand=scroll.set)
-        scroll.pack(side="right", fill="y")
-        lista.pack(fill="both", expand=True)
-        for i, accion in enumerate(self.mision["historial"], start=1):
-            lista.insert("end", f"{i}. {accion}")
-
     def accion_reporte(self):
-        if not self.hay_mision():
-            return
+        if self.mision is None:
+            return messagebox.showwarning("Sin misión", "Primero crea una misión.")
         texto = reportes.texto_reporte(self.mision)
-        win = tk.Toplevel(self)
+        win = tk.Toplevel(self, bg=BG)
         win.title("Reporte final")
-        win.geometry("480x380")
-        caja = tk.Text(win, wrap="word")
+        win.geometry("500x420")
+        caja = tk.Text(win, wrap="word", bg=PANEL, fg=TEXTO, relief="flat", font=("Consolas", 10), padx=10, pady=10)
         caja.insert("1.0", texto)
         caja.config(state="disabled")
-        caja.pack(fill="both", expand=True, padx=8, pady=8)
+        caja.pack(fill="both", expand=True, padx=10, pady=10)
 
         def guardar():
-            ruta = filedialog.asksaveasfilename(defaultextension=".txt",
-                                                filetypes=[("Texto", "*.txt")],
+            ruta = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Texto", "*.txt")],
                                                 initialfile="reporte_rcs.txt", parent=win)
             if ruta:
-                with open(ruta, "w", encoding="utf-8") as archivo:
-                    archivo.write(texto)
+                with open(ruta, "w", encoding="utf-8") as f:
+                    f.write(texto)
                 messagebox.showinfo("Guardado", f"Reporte guardado en:\n{ruta}", parent=win)
 
-        ttk.Button(win, text="Guardar como TXT", command=guardar).pack(pady=(0, 8))
+        boton(win, "Guardar como TXT", guardar, ACENTO, "#04121f").pack(pady=(0, 10))
+
+    def accion_operadores(self):
+        """Panel de administración: lista operadores y permite borrar su progreso."""
+        if not usuarios.es_admin(self.operador):
+            return messagebox.showerror("Sin permiso", "Solo el admin puede gestionar operadores.")
+        win = tk.Toplevel(self, bg=BG)
+        win.title("Operadores")
+        win.geometry("400x320")
+        lista = tk.Listbox(win, bg=PANEL, fg=TEXTO, relief="flat", font=(F, 11),
+                           selectbackground=ACENTO, selectforeground="#04121f", highlightthickness=0)
+        lista.pack(fill="both", expand=True, padx=10, pady=10)
+
+        def cargar():
+            lista.delete(0, "end")
+            for u in usuarios.operadores:
+                guardado = "💾 progreso guardado" if reportes.existe_progreso(u) else "—"
+                lista.insert("end", f"{u}  [{usuarios.rol(u)}]   {guardado}")
+
+        def borrar():
+            sel = lista.curselection()
+            if not sel:
+                return messagebox.showwarning("Selecciona", "Elige un operador de la lista.", parent=win)
+            u = list(usuarios.operadores)[sel[0]]
+            if messagebox.askyesno("Borrar progreso", f"¿Borrar el progreso guardado de '{u}'?", parent=win):
+                reportes.borrar_progreso(u)
+                cargar()
+
+        cargar()
+        boton(win, "Borrar progreso seleccionado", borrar, "#3b1d24", "#fca5a5").pack(pady=(0, 10))
 
     def accion_logout(self):
-        self.operador = None
-        self.mision = None
+        self.operador = self.mision = None
         self.pantalla_login()
 
 

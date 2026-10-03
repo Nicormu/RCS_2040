@@ -13,6 +13,7 @@ def calcular_estadisticas(mision):
     total = mision["eventos_procesados"]
     buenas = mision["decisiones_correctas"]
     return {
+        "Dificultad": mision.get("dificultad", "Normal"),
         "Eventos": total,
         "Decisiones correctas": buenas,
         "Decisiones incorrectas": mision["decisiones_incorrectas"],
@@ -67,6 +68,14 @@ def existe_progreso(operador):
     return os.path.exists(ruta_progreso(operador))
 
 
+def borrar_progreso(operador):
+    """Elimina el progreso guardado del operador. Devuelve True si existía."""
+    if existe_progreso(operador):
+        os.remove(ruta_progreso(operador))
+        return True
+    return False
+
+
 def guardar_progreso(mision):
     """Guarda todo el estado de la misión en un CSV (tipo, clave, valor)."""
     with open(ruta_progreso(mision["operador"]), "w", newline="", encoding="utf-8-sig") as f:
@@ -74,6 +83,7 @@ def guardar_progreso(mision):
         w.writerow(["tipo", "clave", "valor"])
         w.writerow(["meta", "operador", mision["operador"]])
         w.writerow(["meta", "estado", mision["estado"]])
+        w.writerow(["meta", "dificultad", mision.get("dificultad", "Normal")])
         for c in CONTADORES:
             w.writerow(["contador", c, mision[c]])
         for nombre, valor in mision["recursos"].items():
@@ -86,13 +96,14 @@ def cargar_progreso(operador):
     """Reconstruye la misión desde el CSV. Devuelve None si no existe o está dañado."""
     if not existe_progreso(operador):
         return None
-    mision = {"operador": operador, "recursos": {}, "estado": "OPERATIVA", "historial": []}
+    mision = {"operador": operador, "recursos": {}, "estado": "OPERATIVA",
+              "dificultad": "Normal", "historial": []}
     try:
         with open(ruta_progreso(operador), newline="", encoding="utf-8-sig") as f:
             for fila in csv.DictReader(f):
                 tipo, clave, valor = fila["tipo"], fila["clave"], fila["valor"]
-                if tipo == "meta" and clave == "estado":
-                    mision["estado"] = valor
+                if tipo == "meta" and clave in ("estado", "dificultad"):
+                    mision[clave] = valor
                 elif tipo == "contador":
                     mision[clave] = int(valor)
                 elif tipo == "recurso":

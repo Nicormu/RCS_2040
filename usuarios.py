@@ -1,10 +1,23 @@
-"""Módulo de autenticación de operadores."""
+"""Módulo de autenticación de operadores y permisos por rol."""
 from utilidades import leer_texto
 
 MAX_INTENTOS = 3
 
 # Diccionario: usuario -> contraseña
 operadores = {"admin": "1234"}
+
+# Rol de cada usuario; todo el que no aparezca aquí es "operador"
+ROLES = {"admin": "admin"}
+
+
+def rol(usuario):
+    """Devuelve el rol del usuario: 'admin' u 'operador'."""
+    return ROLES.get(usuario, "operador")
+
+
+def es_admin(usuario):
+    """Solo el admin puede gestionar otros operadores (ver y borrar su progreso)."""
+    return rol(usuario) == "admin"
 
 
 def crear_operador():

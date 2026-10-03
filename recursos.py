@@ -1,11 +1,16 @@
 """Sistema de recursos de la misión."""
+import random
 
-RECURSOS_INICIALES = {"Energía": 100, "Agua": 80, "Alimentos": 70, "Comunicación": 90}
+NOMBRES = ("Energía", "Agua", "Alimentos", "Comunicación")
+
+# Rango (mínimo, máximo) del valor inicial aleatorio según la dificultad
+RANGOS_INICIO = {"Fácil": (70, 100), "Normal": (55, 90), "Difícil": (40, 75)}
 
 
-def crear_recursos():
-    """Devuelve una copia de los recursos iniciales."""
-    return dict(RECURSOS_INICIALES)
+def crear_recursos(dificultad="Normal"):
+    """Devuelve los recursos con un valor inicial aleatorio según la dificultad."""
+    bajo, alto = RANGOS_INICIO.get(dificultad, RANGOS_INICIO["Normal"])
+    return {nombre: random.randint(bajo, alto) for nombre in NOMBRES}
 
 
 def modificar_recurso(recursos, nombre, cambio):

@@ -5,11 +5,13 @@ import usuarios, recursos, eventos, reportes
 ESTADOS = ["INICIALIZANDO", "OPERATIVA", "ALERTA", "CRÍTICA", "RESUELTA", "FALLIDA"]
 
 
-def crear_mision(operador):
-    """Crea el diccionario que guarda todo el estado de la misión."""
+def crear_mision(operador, dificultad="Normal"):
+    """Crea el diccionario que guarda todo el estado de la misión.
+    Los recursos iniciales son aleatorios según la dificultad."""
     mision = {
         "operador": operador,
-        "recursos": recursos.crear_recursos(),
+        "dificultad": dificultad,
+        "recursos": recursos.crear_recursos(dificultad),
         "estado": "INICIALIZANDO",
         "puntos": 0,
         "eventos_procesados": 0,
@@ -17,7 +19,7 @@ def crear_mision(operador):
         "decisiones_incorrectas": 0,
         "historial": [],
     }
-    reportes.registrar(mision, "Misión creada")
+    reportes.registrar(mision, f"Misión creada (dificultad {dificultad})")
     mision["estado"] = "OPERATIVA"
     return mision
 
@@ -39,8 +41,10 @@ def panel_principal(operador):
                     if mision is None:
                         print("  No se pudo leer el progreso; se creará una misión nueva.")
             if mision is None:
-                mision = crear_mision(operador)
-                print("Misión creada.")
+                n = leer_entero("Dificultad: 1. Fácil  2. Normal  3. Difícil: ", 1, 3)
+                nivel = list(eventos.DIFICULTADES)[n - 1]
+                mision = crear_mision(operador, nivel)
+                print(f"Misión creada ({nivel}).")
             else:
                 print(f"Misión retomada. Estado: {mision['estado']}")
         elif opcion == 8:
@@ -59,6 +63,8 @@ def panel_principal(operador):
         elif opcion == 5:
             for clave, valor in reportes.calcular_estadisticas(mision).items():
                 print(f"{clave}: {valor}")
+            riesgo, nivel = eventos.algoritmo_propio(mision)
+            print(f"Riesgo: {riesgo} ({nivel})")
         elif opcion == 6:
             reportes.mostrar_historial(mision)
         elif opcion == 7:

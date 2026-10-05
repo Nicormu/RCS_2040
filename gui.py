@@ -1,6 +1,7 @@
-"""ROBOYORK CONTROL SYSTEM - interfaz gráfica (tkinter).
-Ejecutar: python gui.py   (o python main.py)
-La GUI solo muestra datos y llama a la lógica de usuarios, eventos y reportes.
+"""ROBOYORK CONTROL SYSTEM - interfaz gráfica con tkinter.
+
+Se ejecuta con:  python gui.py   (o python main.py)
+Este archivo solo muestra datos y botones; la lógica está en usuarios, eventos y reportes.
 """
 import tkinter as tk
 from tkinter import messagebox, filedialog, simpledialog
@@ -11,36 +12,51 @@ import eventos
 import reportes
 from main import crear_mision
 
-# ---------- tema ----------
+# ---------- colores y fuente ----------
 F = "Segoe UI"
 BG, PANEL, PANEL2 = "#0b1220", "#151f33", "#1f2d47"
 TEXTO, MUTED, ACENTO = "#e6edf7", "#8aa0bf", "#38bdf8"
 VERDE, AMBAR, ROJO = "#22c55e", "#f59e0b", "#ef4444"
-COLORES_ESTADO = {"INICIALIZANDO": "#64748b", "OPERATIVA": "#16a34a", "ALERTA": "#d97706",
-                  "CRÍTICA": "#dc2626", "RESUELTA": "#2563eb", "FALLIDA": "#7c2d12"}
-ICONOS = {"Energía": "⚡", "Agua": "💧", "Alimentos": "🍞", "Comunicación": "📡"}
-DESC_DIF = {"Fácil": "Más recursos y menos castigo",
-            "Normal": "Equilibrada",
-            "Difícil": "Recursos escasos, desgaste y más riesgo"}
+COLORES_ESTADO = {
+                "INICIALIZANDO": "#64748b", 
+                "OPERATIVA": "#16a34a", 
+                "ALERTA": "#d97706",
+                "CRÍTICA": "#dc2626", 
+                "RESUELTA": "#2563eb", 
+                "FALLIDA": "#7c2d12"
+                }
+ICONOS = {
+        "Energía": "⚡", 
+        "Agua": "💧", 
+        "Alimentos": "🍞", 
+        "Comunicación": "📡"
+        }
+DESC_DIF = {
+        "Fácil": "Más recursos y menos castigo",
+        "Normal": "Equilibrada",
+        "Difícil": "Recursos escasos, desgaste y más riesgo"
+        }
 
 
-def aclarar(c):
-    n = int(c[1:], 16)
-    return "#%02x%02x%02x" % tuple(min(255, x + 28) for x in (n >> 16 & 255, n >> 8 & 255, n & 255))
+def aclarar(color):
+    """Devuelve el mismo color un poco más claro (para el efecto al pasar el mouse)."""
+    n = int(color[1:], 16)
+    rgb = (n >> 16 & 255, n >> 8 & 255, n & 255)
+    return "#%02x%02x%02x" % tuple(min(255, x + 28) for x in rgb)
 
 
 def boton(parent, texto, cmd, bg=PANEL2, fg=TEXTO, **kw):
-    """Botón plano con efecto hover."""
+    """Crea un botón plano que se aclara cuando el mouse pasa por encima."""
     b = tk.Button(parent, text=texto, command=cmd, bg=bg, fg=fg, relief="flat", bd=0,
-                  font=(F, 10, "bold"), cursor="hand2", padx=14, pady=8, activebackground=aclarar(bg),
-                  activeforeground=fg, **kw)
+                  font=(F, 10, "bold"), cursor="hand2", padx=14, pady=8,
+                  activebackground=aclarar(bg), activeforeground=fg, **kw)
     b.bind("<Enter>", lambda _e: b.config(bg=aclarar(bg)))
     b.bind("<Leave>", lambda _e: b.config(bg=bg))
     return b
 
 
 class Barra(tk.Canvas):
-    """Barra de progreso animada que cambia de color según el nivel."""
+    """Barra de progreso que sube o baja poco a poco y cambia de color según el valor."""
 
     def __init__(self, master):
         super().__init__(master, height=12, bg=PANEL2, highlightthickness=0)
@@ -48,12 +64,14 @@ class Barra(tk.Canvas):
         self.bind("<Configure>", lambda _e: self._dibujar())
 
     def poner(self, v):
+        """Define el valor al que debe llegar la barra y arranca la animación."""
         self.objetivo = v
         if self._job:
             self.after_cancel(self._job)
         self._animar()
 
     def _animar(self):
+        # Mueve la barra hasta 3 puntos por paso hacia el objetivo
         delta = self.objetivo - self.valor
         if delta:
             self.valor += (1 if delta > 0 else -1) * min(abs(delta), 3)
@@ -80,10 +98,12 @@ class App(tk.Tk):
         self.pantalla_login()
 
     def limpiar(self, w=None):
+        """Borra todo lo que hay dentro de un frame (por defecto el contenedor principal)."""
         for h in (w or self.contenedor).winfo_children():
             h.destroy()
 
     def etiqueta(self, parent, texto, size=10, color=TEXTO, bold=False, bg=None, **kw):
+        """Atajo para crear un Label con la fuente y los colores del tema."""
         return tk.Label(parent, text=texto, fg=color, bg=bg or parent["bg"],
                         font=(F, size, "bold" if bold else "normal"), **kw)
 
@@ -105,6 +125,7 @@ class App(tk.Tk):
             e.pack(pady=(2, 12), ipady=6)
             if not oculto:
                 e.focus()
+        # Enter en el campo de contraseña también inicia sesión
         e.bind("<Return>", lambda _e: self.hacer_login())
         boton(card, "Iniciar sesión", self.hacer_login, ACENTO, "#04121f").pack(fill="x")
         boton(card, "Crear operador", self.hacer_registro).pack(fill="x", pady=(8, 0))
@@ -132,17 +153,17 @@ class App(tk.Tk):
         elif user in usuarios.operadores:
             messagebox.showerror("Error", "Ese operador ya existe.")
         else:
-            usuarios.operadores[user] = clave
+            usuarios.registrar(user, clave)
             messagebox.showinfo("Listo", f"Operador '{user}' creado. Ya puedes iniciar sesión.")
 
-    # ---------- dashboard ----------
+    # ---------- panel principal ----------
     def pantalla_panel(self):
         self.limpiar()
         c = self.contenedor
         c.columnconfigure(1, weight=1)
         c.rowconfigure(0, weight=1)
 
-        # barra lateral
+        # Menú lateral
         lado = tk.Frame(c, bg=PANEL, width=210)
         lado.grid(row=0, column=0, sticky="ns")
         lado.pack_propagate(False)
@@ -152,14 +173,14 @@ class App(tk.Tk):
                    ("⚠  Procesar evento", self.accion_evento, PANEL2, TEXTO),
                    ("▶  Simular", self.accion_simulacion, PANEL2, TEXTO),
                    ("📄  Reporte", self.accion_reporte, PANEL2, TEXTO)]
-        if usuarios.es_admin(self.operador):  # permiso solo para el admin
+        if usuarios.es_admin(self.operador):  # este botón solo lo ve el admin
             botones.append(("👥  Operadores", self.accion_operadores, PANEL2, TEXTO))
         for texto, cmd, bg, fg in botones:
             boton(lado, texto, cmd, bg, fg, anchor="w").pack(fill="x", padx=14, pady=4)
         boton(lado, "⏻  Cerrar sesión", self.accion_logout, "#3b1d24", "#fca5a5",
               anchor="w").pack(side="bottom", fill="x", padx=14, pady=16)
 
-        # zona principal
+        # Zona principal
         main = tk.Frame(c, bg=BG, padx=22, pady=18)
         main.grid(row=0, column=1, sticky="nsew")
         main.columnconfigure((0, 1), weight=1, uniform="a")
@@ -171,7 +192,7 @@ class App(tk.Tk):
                               font=(F, 10, "bold"), padx=14, pady=4)
         self.badge.grid(row=0, column=1, sticky="e")
 
-        # tarjetas de recursos
+        # Una tarjeta por recurso (2 columnas)
         self.barras = {}
         for i, nombre in enumerate(recursos.NOMBRES):
             card = tk.Frame(main, bg=PANEL, padx=14, pady=10)
@@ -184,7 +205,7 @@ class App(tk.Tk):
             barra.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
             self.barras[nombre] = (barra, lbl)
 
-        # fila de métricas
+        # Fila de métricas: puntos, eventos, eficiencia y riesgo
         fila = tk.Frame(main, bg=BG)
         fila.grid(row=3, column=0, columnspan=2, sticky="ew", pady=4)
         self.tiles = {}
@@ -196,7 +217,7 @@ class App(tk.Tk):
             self.tiles[t] = self.etiqueta(tile, "--", 14, TEXTO, True)
             self.tiles[t].pack(anchor="w")
 
-        # evento + historial
+        # Abajo: el evento actual (izquierda) y el historial (derecha)
         self.panel_evento = tk.Frame(main, bg=PANEL, padx=16, pady=12)
         self.panel_evento.grid(row=4, column=0, sticky="nsew", padx=(0, 8), pady=(10, 0))
         hist = tk.Frame(main, bg=PANEL, padx=12, pady=12)
@@ -211,6 +232,7 @@ class App(tk.Tk):
         self.refrescar()
 
     def refrescar(self):
+        """Vuelve a pintar barras, métricas, estado e historial con los datos actuales."""
         m = self.mision
         for nombre, (barra, lbl) in self.barras.items():
             barra.poner(m["recursos"][nombre] if m else 0)
@@ -222,12 +244,13 @@ class App(tk.Tk):
         self.log.delete("1.0", "end")
         if m:
             est = reportes.calcular_estadisticas(m)
-            riesgo, nivel = eventos.algoritmo_propio(m)
+            riesgo, nivel = eventos.indice_riesgo(m["recursos"])
             self.tiles["Puntos"].config(text=m["puntos"])
             self.tiles["Eventos"].config(text=f"{m['eventos_procesados']}/{eventos.config_mision(m)['meta']}")
             self.tiles["Eficiencia"].config(text=f"{est['Eficiencia (%)']}%")
             self.tiles["Riesgo"].config(text=f"{riesgo} · {nivel}",
                                         fg={"BAJO": VERDE, "MEDIO": AMBAR, "ALTO": ROJO}[nivel])
+            # Verde si la línea suma puntos, rojo si resta o es un fallo
             for i, a in enumerate(m["historial"], start=1):
                 tag = "pos" if "(+" in a else "neg" if "(-" in a or "FALLIDA" in a else ""
                 self.log.insert("end", f"{i}. {a}\n", tag)
@@ -235,7 +258,7 @@ class App(tk.Tk):
         self.log.config(state="disabled")
 
     def mensaje(self, titulo, detalle="", color=TEXTO):
-        """Muestra un mensaje en el panel de eventos."""
+        """Escribe un mensaje en el panel del evento (reemplaza lo que hubiera)."""
         self.limpiar(self.panel_evento)
         self.etiqueta(self.panel_evento, titulo, 12, color, True, wraplength=320, justify="left").pack(anchor="w")
         if detalle:
@@ -243,6 +266,7 @@ class App(tk.Tk):
                           justify="left").pack(anchor="w", pady=4)
 
     def mision_activa(self):
+        """True si hay una misión en curso; si no, avisa al usuario y devuelve False."""
         if self.mision is None:
             messagebox.showwarning("Sin misión", "Primero crea una misión.")
         elif self.mision["estado"] in eventos.FINALES:
@@ -252,7 +276,7 @@ class App(tk.Tk):
         return False
 
     def pedir_dificultad(self):
-        """Diálogo modal con un botón por dificultad. Devuelve el nombre o None."""
+        """Ventana con un botón por dificultad. Devuelve el nombre elegido o None."""
         res = []
         win = tk.Toplevel(self, bg=PANEL, padx=24, pady=20)
         win.title("Dificultad")
@@ -265,7 +289,7 @@ class App(tk.Tk):
         self.wait_window(win)
         return res[0] if res else None
 
-    # ---------- acciones ----------
+    # ---------- acciones de los botones ----------
     def accion_crear(self):
         previa, self.mision = self.mision, None
         if reportes.existe_progreso(self.operador) and messagebox.askyesno(
@@ -292,6 +316,7 @@ class App(tk.Tk):
                   anchor="w", wraplength=320, justify="left").pack(fill="x", pady=3)
 
     def elegir(self, ev, i):
+        """Se llama al pulsar una opción: aplica la decisión y muestra el resultado."""
         op = eventos.aplicar_opcion(self.mision, ev, i)
         self.refrescar()
         estado = self.mision["estado"]
@@ -307,8 +332,13 @@ class App(tk.Tk):
     def accion_simulacion(self):
         if not self.mision_activa():
             return
-        n = simpledialog.askinteger("Simulación", "Número de eventos (1-20):",
-                                    minvalue=1, maxvalue=20, initialvalue=5, parent=self)
+        restantes = eventos.eventos_restantes(self.mision)
+        if restantes == 0:
+            return messagebox.showinfo("Meta alcanzada", "Ya se llegó a la meta de eventos.\n"
+                                       "Procesa eventos a mano para recuperar los recursos.")
+        n = simpledialog.askinteger("Simulación", f"Número de eventos (1-{restantes}):",
+                                    minvalue=1, maxvalue=restantes, initialvalue=min(5, restantes),
+                                    parent=self)
         if n:
             hechos = eventos.simular(self.mision, n)
             self.mensaje("Simulación completada", f"{hechos} evento(s) ejecutados.", ACENTO)
@@ -337,7 +367,7 @@ class App(tk.Tk):
         boton(win, "Guardar como TXT", guardar, ACENTO, "#04121f").pack(pady=(0, 10))
 
     def accion_operadores(self):
-        """Panel de administración: lista operadores y permite borrar su progreso."""
+        """Panel del admin: lista los operadores y permite borrar su progreso guardado."""
         if not usuarios.es_admin(self.operador):
             return messagebox.showerror("Sin permiso", "Solo el admin puede gestionar operadores.")
         win = tk.Toplevel(self, bg=BG)

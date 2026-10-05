@@ -1,4 +1,4 @@
-"""Motor de eventos aleatorios, decisiones y reglas de negocio."""
+"""Eventos aleatorios, decisiones y reglas de la misión."""
 import random
 
 import recursos
@@ -8,29 +8,29 @@ from utilidades import leer_entero
 FINALES = ("RESUELTA", "FALLIDA")
 FALLO_PUNTOS = -5  # puntos que se reciben cuando una acción riesgosa falla
 
-# Parámetros por dificultad:
-#  meta     = eventos necesarios para resolver la misión
-#  desgaste = consumo pasivo (mín, máx) que pierde CADA recurso tras cada evento
-#  castigo  = multiplicador de los efectos negativos
-#  azar     = variación aleatoria ± aplicada a cada efecto
-#  suerte   = ajuste a la probabilidad de éxito de las acciones riesgosas
-#  bonus    = puntos extra al resolver la misión
+# Configuración de cada dificultad:
+#   meta     = eventos que hay que procesar para resolver la misión
+#   desgaste = cuánto pierde cada recurso por turno (mínimo, máximo)
+#   castigo  = multiplicador de los efectos negativos
+#   azar     = variación aleatoria (+/-) de cada efecto
+#   suerte   = ajuste a la probabilidad de éxito de las acciones riesgosas
+#   bonus    = puntos extra al resolver la misión
 DIFICULTADES = {
     "Fácil":   {"meta": 8,  "desgaste": (0, 1), "castigo": 1.0,  "azar": 2, "suerte": +0.10, "bonus": 10},
     "Normal":  {"meta": 10, "desgaste": (0, 2), "castigo": 1.25, "azar": 3, "suerte": 0.0,   "bonus": 20},
     "Difícil": {"meta": 12, "desgaste": (0, 3), "castigo": 1.4,  "azar": 4, "suerte": -0.10, "bonus": 40},
 }
 
-# Peso de cada recurso en el índice de riesgo (suman 1.0)
+# Importancia de cada recurso en el índice de riesgo (suman 1.0)
 PESOS = {"Energía": 0.4, "Agua": 0.3, "Alimentos": 0.2, "Comunicación": 0.1}
 
 
 def op(texto, puntos, prob=1.0, **efectos):
-    """Crea una opción de evento. prob < 1 = acción riesgosa (puede fallar)."""
+    """Crea una opción de evento. Si prob < 1 es una acción riesgosa (puede fallar)."""
     return {"texto": texto, "efectos": efectos, "puntos": puntos, "prob": prob}
 
 
-# "recurso" = recurso principal afectado (se usa para ponderar el azar)
+# "recurso" es el recurso principal del evento; sirve para que salga más seguido cuando ese recurso está bajo.
 EVENTOS = [
     {"nombre": "Falla energética", "recurso": "Energía", "opciones": [
         op("Activar generador de respaldo", 10, Energía=+15, Agua=-5),
@@ -112,30 +112,38 @@ EVENTOS = [
 
 
 def config_mision(mision):
-    """Parámetros de la dificultad de la misión (Normal si no se reconoce)."""
+    """Devuelve la configuración de la dificultad de la misión (Normal si no la reconoce)."""
     return DIFICULTADES.get(mision.get("dificultad"), DIFICULTADES["Normal"])
 
 
 def generar_evento(mision=None):
-    """Elige un evento al azar y baraja el orden de sus opciones.
-    Si hay misión, los recursos más bajos hacen más probable el evento que los
-    afecta (el azar depende del estado). Devuelve una copia: EVENTOS no cambia."""
+    """Elige un evento al azar y mezcla el orden de sus opciones.
+
+    Si se pasa la misión, los eventos que afectan a un recurso bajo tienen más
+    probabilidad de salir. Devuelve una copia, así que la lista EVENTOS no cambia.
+    """
     if mision is None:
         base = random.choice(EVENTOS)
     else:
+        # Peso 1 si el recurso está lleno; sube hasta 5 si está en 0
         pesos = [1 + (100 - mision["recursos"][e["recurso"]]) / 25 for e in EVENTOS]
         base = random.choices(EVENTOS, weights=pesos, k=1)[0]
     opciones = list(base["opciones"])
-    random.shuffle(opciones)  # el orden de las respuestas cambia cada vez
+    random.shuffle(opciones)
     return {"nombre": base["nombre"], "recurso": base["recurso"], "opciones": opciones}
 
 
 def aplicar_opcion(mision, evento, indice):
     """Aplica la opción elegida y devuelve {"texto", "puntos", "exito"}.
-    - Las acciones riesgosas (prob < 1) pueden fallar: no dan sus mejoras, pagan
-      sus costos y restan FALLO_PUNTOS.
-    - Los efectos negativos se multiplican por 'castigo' y todos llevan azar ±.
-    - Después de cada evento todos los recursos pierden un desgaste aleatorio."""
+
+    Pasos:
+    1. Si la opción es riesgosa, se sortea si funciona. Si falla, no da sus
+       mejoras, igual paga sus costos y resta FALLO_PUNTOS.
+    2. Los efectos negativos se multiplican por el castigo de la dificultad y a
+       todos los efectos se les suma un poco de azar.
+    3. Todos los recursos pierden un pequeño desgaste.
+    4. Se actualizan puntos, contadores, historial, estado y el autoguardado.
+    """
     cfg = config_mision(mision)
     opcion = evento["opciones"][indice]
     prob = opcion.get("prob", 1.0)
@@ -144,12 +152,14 @@ def aplicar_opcion(mision, evento, indice):
 
     for nombre, cambio in opcion["efectos"].items():
         if not exito and cambio > 0:
-            continue  # el remedio falló: sin mejora, pero los costos sí se pagan
+            continue  # la acción falló: se salta la mejora, pero los costos se pagan
         if cambio < 0:
             cambio = round(cambio * cfg["castigo"])
         cambio += random.randint(-cfg["azar"], cfg["azar"])
         recursos.modificar_recurso(mision["recursos"], nombre, cambio)
-    for nombre in mision["recursos"]:  # desgaste pasivo de cada turno
+
+    # Desgaste de cada turno
+    for nombre in mision["recursos"]:
         recursos.modificar_recurso(mision["recursos"], nombre, -random.randint(*cfg["desgaste"]))
 
     mision["puntos"] += puntos
@@ -166,22 +176,33 @@ def aplicar_opcion(mision, evento, indice):
 
 
 def procesar_evento(mision):
-    """Versión consola: muestra evento, lee decisión validada y la aplica."""
+    """Versión de consola: muestra un evento, pide la decisión y la aplica."""
     if mision["estado"] in FINALES:
-        print(f"  ⚠ La misión ya terminó ({mision['estado']}).")
+        print(f"  La misión ya terminó ({mision['estado']}).")
         return
     evento = generar_evento(mision)
-    print(f"\n⚠ EVENTO: {evento['nombre']}")
+    print(f"\nEVENTO: {evento['nombre']}")
     for i, o in enumerate(evento["opciones"], start=1):
         print(f"  {i}. {o['texto']}")
     eleccion = leer_entero("Decisión: ", 1, len(evento["opciones"]))
     res = aplicar_opcion(mision, evento, eleccion - 1)
     aviso = "" if res["exito"] else " ¡La acción FALLÓ!"
-    print(f"→ {res['texto']} ({res['puntos']:+d} pts).{aviso} Estado: {mision['estado']}")
+    print(f"-> {res['texto']} ({res['puntos']:+d} pts).{aviso} Estado: {mision['estado']}")
+
+
+def eventos_restantes(mision):
+    """Cuántos eventos faltan para llegar a la meta de la dificultad (nunca es negativo)."""
+    return max(0, config_mision(mision)["meta"] - mision["eventos_procesados"])
 
 
 def simular(mision, n):
-    """Ejecuta n eventos automáticos con decisiones al azar. Devuelve cuántos se ejecutaron."""
+    """Ejecuta hasta n eventos con decisiones al azar. Devuelve cuántos se ejecutaron.
+
+    No pasa de la meta: si n es mayor que los eventos que faltan, solo simula los
+    que faltan. Los eventos simulados se suman a los ya procesados, así que después
+    se puede seguir a mano sin sobrepasar el límite.
+    """
+    n = min(n, eventos_restantes(mision))
     ejecutados = 0
     for _ in range(n):
         if mision["estado"] in FINALES:
@@ -193,11 +214,13 @@ def simular(mision, n):
 
 
 def evaluar_reglas(mision):
-    """Reglas de negocio que actualizan mision['estado'] automáticamente.
-    Orden de prioridad: FALLIDA > CRÍTICA > ALERTA > RESUELTA > OPERATIVA.
-    Solo se resuelve si, al llegar a la meta, ningún recurso está en alerta."""
+    """Actualiza mision['estado'] según los recursos.
+
+    Orden de prioridad: FALLIDA, CRÍTICA, ALERTA, RESUELTA, OPERATIVA.
+    La misión solo se resuelve si al llegar a la meta ningún recurso está en alerta.
+    """
     if mision["estado"] in FINALES:
-        return
+        return  # una misión terminada ya no cambia de estado
     r = mision["recursos"]
     cfg = config_mision(mision)
     if min(r.values()) == 0:
@@ -215,28 +238,24 @@ def evaluar_reglas(mision):
         mision["estado"] = "OPERATIVA"
 
 
-# ---------- ALGORITMO PROPIO: índice de riesgo ponderado ----------
+# ---------- Algoritmo propio: índice de riesgo ponderado ----------
+
 def indice_riesgo(estado_recursos):
-    """Índice de riesgo ponderado de la misión.
+    """Calcula un número de 0 a 100 que dice qué tan cerca está la misión del colapso.
 
-    Fórmula:  riesgo = Σ peso_i × (100 − valor_i)
-    - peso_i  : importancia del recurso (PESOS; Energía 0.4, Agua 0.3,
-                Alimentos 0.2, Comunicación 0.1; suman 1.0).
-    - 100 − v : cuánto le falta al recurso para estar completo.
-    Rango: 0 (todos al 100 %) a 100 (todos en 0). Complejidad O(n), n = recursos.
+    Fórmula: riesgo = suma de peso * (100 - valor) para cada recurso.
+    Cada recurso aporta según cuánto le falta para estar completo, y los
+    recursos más importantes (Energía, Agua) pesan más.
+
     Ejemplo: Energía 100, Agua 80, Alimentos 70, Comunicación 90
-             → 0.4·0 + 0.3·20 + 0.2·30 + 0.1·10 = 13.0
+             0.4*0 + 0.3*20 + 0.2*30 + 0.1*10 = 13.0
     """
-    return sum(PESOS[n] * (100 - v) for n, v in estado_recursos.items())
-
-
-def algoritmo_propio(mision):
-    """Devuelve (riesgo, nivel): BAJO (<25), MEDIO (25 a <50) o ALTO (≥50)."""
-    riesgo = indice_riesgo(mision["recursos"])
+    
+    riesgo = sum(PESOS[n] * (100 - v) for n, v in estado_recursos.items())
     if riesgo < 25:
         nivel = "BAJO"
     elif riesgo < 50:
-        nivel = "MEDIO"
+            nivel = "MEDIO"
     else:
         nivel = "ALTO"
     return round(riesgo, 1), nivel

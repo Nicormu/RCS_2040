@@ -1,26 +1,24 @@
-"""Funciones de validación de entradas (reutilizables en todos los módulos)."""
+"""Funciones para validar lo que escribe el usuario (se usan en varios módulos)."""
 
 
 def leer_texto(mensaje, minimo=1):
-    """Pide un texto y repite hasta que no esté vacío."""
+    """Pide un texto y vuelve a preguntar hasta que tenga al menos `minimo` caracteres."""
     while True:
         valor = input(mensaje).strip()
         if len(valor) >= minimo:
             return valor
-        print(f"  ⚠ Entrada inválida: mínimo {minimo} carácter(es).")
+        print(f"  Entrada inválida: mínimo {minimo} carácter(es).")
 
 
 def leer_entero(mensaje, minimo, maximo):
-    """Pide un entero dentro de [minimo, maximo]."""
+    """Pide un número entero entre `minimo` y `maximo` (ambos incluidos)."""
     while True:
         valor = input(mensaje)
         try:
             numero = int(valor)
         except ValueError:
-            print(" Debes escribir un número entero.")
+            print("  Debes escribir un número entero.")
             continue
         if minimo <= numero <= maximo:
-            break
-        print(f" Fuera de rango ({minimo}-{maximo}).")
-
-    return numero
+            return numero
+        print(f"  Fuera de rango ({minimo}-{maximo}).")

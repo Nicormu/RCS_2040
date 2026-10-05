@@ -1,0 +1,46 @@
+{
+  "operador": "admin",
+  "misiones": [
+    {
+      "id": "2026-10-04 19:40:55",
+      "dificultad": "Difícil",
+      "estado": "FALLIDA",
+      "puntos": 67,
+      "acciones": [
+        "Misión creada (dificultad Difícil)",
+        "Impacto de meteorito en los paneles: Reasignar las baterías de emergencia (+6 pts)",
+        "Intrusión informática: Aislar la red y restaurar copias (+8 pts)",
+        "Tormenta solar: Activar el blindaje (+10 pts)",
+        "Fuga en el sistema de refrigeración: Recolectar y reciclar el agua (+8 pts)",
+        "Impacto de meteorito en los paneles: Reasignar las baterías de emergencia (+6 pts)",
+        "Sobreconsumo de recursos: Apagar módulos secundarios (+7 pts)",
+        "Falla energética: Reiniciar el reactor principal (riesgoso) (+12 pts)",
+        "Contaminación del agua: Usar el agua sin tratar (-10 pts)",
+        "Contaminación del agua: Inyectar purificante químico (riesgoso) (+11 pts)",
+        "Impacto de meteorito en los paneles: Reparar los paneles con el dron (+9 pts)",
+        "Cámara de frío averiada: Consumir primero lo perecedero (+5 pts)",
+        "Pérdida de comunicaciones: Esperar a que se restablezca (-5 pts)",
+        "MISIÓN FALLIDA: un recurso llegó a 0"
+      ]
+    },
+    {
+      "id": "2026-10-04 20:24:39",
+      "dificultad": "Normal",
+      "estado": "FALLIDA",
+      "puntos": 17,
+      "acciones": [
+        "Misión creada (dificultad Normal)",
+        "Pérdida de comunicaciones: Reiniciar el módulo de comunicaciones (riesgoso) (+10 pts)",
+        "Fallo en el transporte de suministros: Racionar las reservas (+3 pts)",
+        "Impacto de meteorito en los paneles: Reasignar las baterías de emergencia (+6 pts)",
+        "Interferencia en la red de sensores: Instalar un repetidor temporal (+9 pts)",
+        "Falla energética: Activar generador de respaldo (+10 pts)",
+        "Cápsula de suministros a la deriva: Dejarla sin abrir (-2 pts)",
+        "Fallo en el transporte de suministros: No hacer nada (-10 pts)",
+        "Falla energética: Reiniciar el reactor principal (riesgoso) (-5 pts) ¡FALLÓ!",
+        "Cámara de frío averiada: Descartar lo dañado (-4 pts)",
+        "MISIÓN FALLIDA: un recurso llegó a 0"
+      ]
+    }
+  ]
+}

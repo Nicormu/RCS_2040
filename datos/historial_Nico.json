@@ -1,0 +1,101 @@
+{
+  "operador": "Nico",
+  "misiones": [
+    {
+      "id": "2026-10-04 19:41:41",
+      "dificultad": "Normal",
+      "estado": "FALLIDA",
+      "puntos": 34,
+      "acciones": [
+        "Misión creada (dificultad Normal)",
+        "Sobreconsumo de recursos: Aplicar recorte de consumo (+8 pts)",
+        "Cámara de frío averiada: Consumir primero lo perecedero (+5 pts)",
+        "Impacto de meteorito en los paneles: Posponer la reparación (-9 pts)",
+        "Interferencia en la red de sensores: Recalibrar los sensores (+8 pts)",
+        "Interferencia en la red de sensores: Ignorar las lecturas (-8 pts)",
+        "Contaminación del agua: Hervir y racionar el agua (+6 pts)",
+        "Pérdida de comunicaciones: Reorientar la antena satelital (+10 pts)",
+        "Cápsula de suministros a la deriva: Dejarla sin abrir (-2 pts)",
+        "Fallo en el transporte de suministros: Enviar ruta alterna de emergencia (+10 pts)",
+        "Interferencia en la red de sensores: Recalibrar los sensores (+8 pts)",
+        "Contaminación del agua: Usar el agua sin tratar (-10 pts)",
+        "Interferencia en la red de sensores: Recalibrar los sensores (+8 pts)",
+        "MISIÓN FALLIDA: un recurso llegó a 0"
+      ]
+    },
+    {
+      "id": "2026-10-04 19:42:11",
+      "dificultad": "Fácil",
+      "estado": "RESUELTA",
+      "puntos": 16,
+      "acciones": [
+        "Misión creada (dificultad Fácil)",
+        "Pérdida de comunicaciones: Usar el canal de radio de respaldo (+6 pts)",
+        "Cámara de frío averiada: Descartar lo dañado (-4 pts)",
+        "Plaga en el cultivo hidropónico: Tratamiento experimental (riesgoso) (+11 pts)",
+        "Fallo en el transporte de suministros: No hacer nada (-10 pts)",
+        "Fallo en el transporte de suministros: Racionar las reservas (+3 pts)",
+        "Cápsula de suministros a la deriva: Dejarla sin abrir (-2 pts)",
+        "Impacto de meteorito en los paneles: Salida de reparación manual (riesgoso) (+10 pts)",
+        "Sobreconsumo de recursos: Mantener el consumo actual (-8 pts)",
+        "MISIÓN RESUELTA (+10 pts de bonus)"
+      ]
+    },
+    {
+      "id": "2026-10-04 19:42:27",
+      "dificultad": "Normal",
+      "estado": "RESUELTA",
+      "puntos": 50,
+      "acciones": [
+        "Misión creada (dificultad Normal)",
+        "Plaga en el cultivo hidropónico: Aplicar bioprotector (+9 pts)",
+        "Contaminación del agua: Usar el agua sin tratar (-10 pts)",
+        "Falla energética: Reiniciar el reactor principal (riesgoso) (+12 pts)",
+        "Interferencia en la red de sensores: Recalibrar los sensores (+8 pts)",
+        "Fuga en el sistema de refrigeración: Recolectar y reciclar el agua (+8 pts)",
+        "Sobreconsumo de recursos: Aplicar recorte de consumo (+8 pts)",
+        "Intrusión informática: Ignorar la intrusión (-10 pts)",
+        "Intrusión informática: Apagar el módulo comprometido (+5 pts)",
+        "Sobreconsumo de recursos: Mantener el consumo actual (-8 pts)",
+        "Cápsula de suministros a la deriva: Abrirla de inmediato (+8 pts)",
+        "MISIÓN RESUELTA (+20 pts de bonus)"
+      ]
+    },
+    {
+      "id": "2026-10-04 19:47:24",
+      "dificultad": "Normal",
+      "estado": "FALLIDA",
+      "puntos": 4,
+      "acciones": [
+        "Misión creada (dificultad Normal)",
+        "Impacto de meteorito en los paneles: Salida de reparación manual (riesgoso) (-5 pts) ¡FALLÓ!",
+        "Impacto de meteorito en los paneles: Salida de reparación manual (riesgoso) (+10 pts)",
+        "Tormenta solar: Desviar energía a los paneles (riesgoso) (+8 pts)",
+        "Fuga en el sistema de refrigeración: Sellar el conducto con el robot de mantenimiento (+9 pts)",
+        "Contaminación del agua: Hervir y racionar el agua (+6 pts)",
+        "Cápsula de suministros a la deriva: Dejarla sin abrir (-2 pts)",
+        "Tormenta solar: Ignorar la alerta (-12 pts)",
+        "Intrusión informática: Ignorar la intrusión (-10 pts)",
+        "MISIÓN FALLIDA: un recurso llegó a 0"
+      ]
+    },
+    {
+      "id": "2026-10-04 19:47:33",
+      "dificultad": "Fácil",
+      "estado": "RESUELTA",
+      "puntos": 59,
+      "acciones": [
+        "Misión creada (dificultad Fácil)",
+        "Tormenta solar: Desviar energía a los paneles (riesgoso) (+8 pts)",
+        "Intrusión informática: Aislar la red y restaurar copias (+8 pts)",
+        "Cámara de frío averiada: Mover los alimentos a otro módulo (+8 pts)",
+        "Tormenta solar: Apagar sistemas no esenciales (+4 pts)",
+        "Plaga en el cultivo hidropónico: Ignorar la plaga (-10 pts)",
+        "Pérdida de comunicaciones: Reorientar la antena satelital (+10 pts)",
+        "Fallo en el transporte de suministros: Enviar ruta alterna de emergencia (+10 pts)",
+        "Plaga en el cultivo hidropónico: Tratamiento experimental (riesgoso) (+11 pts)",
+        "MISIÓN RESUELTA (+10 pts de bonus)"
+      ]
+    }
+  ]
+}

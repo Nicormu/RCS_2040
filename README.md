@@ -1,93 +1,96 @@
 # ROBOYORK Control System (RCS_2040)
 
-Simulador en Python de gestión de emergencias para la base ROBOYORK VII. El operador
-administra cuatro recursos (Energía, Agua, Alimentos y Comunicación) mientras ocurren
-eventos aleatorios; cada decisión cambia los recursos, la puntuación y el estado de la misión.
+Simulador en Python para manejar emergencias en la base ROBOYORK VII. El operador cuida
+cuatro recursos (Energía, Agua, Alimentos y Comunicación) mientras van pasando eventos al
+azar. Cada decisión cambia los recursos, los puntos y el estado de la misión.
 
-## Cómo ejecutar
+## Cómo ejecutarlo
 
 ```bash
-python main.py     # abre la interfaz gráfica (tkinter); si no hay tkinter, usa la consola
+python main.py     # abre la interfaz gráfica; si no hay tkinter, usa la consola
 python gui.py      # solo la interfaz gráfica
-python tests.py    # casos de prueba
+python tests.py    # pruebas
 ```
 
-Requiere Python 3.8+ y solo la librería estándar. Usuario de prueba: `admin` / `1234`.
+Necesita Python 3.8 o más y solo usa la librería estándar.
+Usuario de prueba: `admin` / `1234`.
 
-## Estructura
+## Archivos
 
-| Archivo | Responsabilidad |
+| Archivo | Para qué sirve |
 |---|---|
-| `main.py` | Crea la misión, panel de consola (8 opciones) y arranque |
-| `gui.py` | Interfaz gráfica (tkinter): solo muestra datos y llama a la lógica |
-| `usuarios.py` | Login (3 intentos), crear operador, roles `admin` / `operador` |
-| `recursos.py` | Recursos, valores iniciales aleatorios y límites 0–100 |
-| `eventos.py` | Eventos, decisiones, dificultad, reglas de estado y algoritmo propio |
-| `reportes.py` | Historial, estadísticas, reporte TXT y guardado de progreso en CSV |
-| `utilidades.py` | Validación de entradas (vacías, inválidas, fuera de rango) |
-| `tests.py` | Casos de prueba automáticos (`unittest`) |
+| `main.py` | Crea la misión, tiene el menú de consola (8 opciones) y arranca el programa |
+| `gui.py` | Interfaz gráfica con tkinter. Solo muestra datos y llama a la lógica |
+| `usuarios.py` | Login (3 intentos), crear operador, roles `admin` / `operador` y guardado en `usuarios.json` |
+| `recursos.py` | Los cuatro recursos, sus valores iniciales y el límite de 0 a 100 |
+| `eventos.py` | Eventos, decisiones, dificultad, reglas de estado y el algoritmo propio |
+| `reportes.py` | Historial, estadísticas, reporte en TXT, progreso en CSV e historial por usuario en JSON |
+| `utilidades.py` | Validación de lo que escribe el usuario (texto y numeros enteros)|
+| `tests.py` | Pruebas automáticas con `unittest` |
 
 ## Cómo se juega
 
-1. Inicia sesión (o crea un operador) y pulsa **Nueva misión**; elige la dificultad.
-2. Los recursos empiezan con un valor **aleatorio** según la dificultad.
-3. **Procesar evento** muestra un evento con 3 o 4 opciones. El **orden de las opciones cambia
-   cada vez** y los efectos no se muestran: hay que decidir con criterio.
-4. **Simular** ejecuta de 1 a 20 eventos con decisiones al azar.
-5. La misión se **autoguarda** después de cada decisión y se puede retomar.
+1. Inicia sesión (o crea un operador), pulsa **Nueva misión** y elige la dificultad.
+2. Los recursos empiezan con un valor al azar que depende de la dificultad.
+3. **Procesar evento** muestra un evento con 3 o 4 opciones. El orden cambia cada vez y no se
+   ven los efectos, así que hay que decidir con criterio.
+4. **Simular** ejecuta eventos con decisiones al azar, sin pasar de la meta de la dificultad:
+   solo deja pedir los eventos que faltan.
+5. La misión se guarda sola después de cada decisión y se puede retomar.
+6. Los operadores quedan en `usuarios.json`. El progreso y el historial de cada uno se guardan en la carpeta `datos/`.
 
 ### Qué hace el juego más difícil
 
-- Tras cada evento **todos los recursos se desgastan** un poco (consumo pasivo).
+- Después de cada evento todos los recursos se desgastan un poco.
 - Los efectos negativos se multiplican por un factor de castigo.
-- Las opciones marcadas *(riesgoso)* dan más, pero **pueden fallar**: no aplican su mejora, pagan
-  su costo y restan 5 puntos.
-- Los eventos se eligen con más probabilidad cuando el recurso que afectan está bajo.
-- Para resolver la misión hay que llegar a la meta **sin ningún recurso en alerta**.
+- Las opciones marcadas *(riesgoso)* dan más, pero pueden fallar: no aplican su mejora,
+  pagan su costo y restan 5 puntos.
+- Salen con más probabilidad los eventos que afectan a un recurso bajo.
+- Para resolver la misión hay que llegar a la meta sin ningún recurso en alerta.
 
 ## Dificultades
 
 | | Fácil | Normal | Difícil |
 |---|---|---|---|
-| Recursos iniciales (aleatorios) | 70–100 | 55–90 | 40–75 |
+| Recursos iniciales (al azar) | 70–100 | 55–90 | 40–75 |
 | Eventos para resolver | 8 | 10 | 12 |
 | Desgaste por evento (cada recurso) | 0–1 | 0–2 | 0–3 |
-| Castigo a efectos negativos | ×1.0 | ×1.25 | ×1.4 |
+| Castigo a efectos negativos | x1.0 | x1.25 | x1.4 |
 | Variación aleatoria de efectos | ±2 | ±3 | ±4 |
 | Probabilidad de acciones riesgosas | +10 % | base | −10 % |
 | Bonus al resolver | +10 | +20 | +40 |
 
-## Estados automáticos
+## Estados de la misión
 
-Prioridad de arriba abajo (`evaluar_reglas`):
+Se revisan de arriba abajo en `evaluar_reglas`:
 
 | Estado | Condición |
 |---|---|
 | `FALLIDA` | algún recurso llega a 0 |
-| `CRÍTICA` | Energía < 20 |
-| `ALERTA` | Agua < 15 o algún recurso < 30 |
-| `RESUELTA` | eventos procesados ≥ meta (y ningún estado anterior) |
+| `CRÍTICA` | Energía menor a 20 |
+| `ALERTA` | Agua menor a 15, o algún recurso menor a 30 |
+| `RESUELTA` | eventos procesados ≥ meta (y no se cumple nada de lo anterior) |
 | `OPERATIVA` | cualquier otro caso |
 
 `RESUELTA` y `FALLIDA` son finales: el estado ya no cambia.
 
 ## Puntuación
 
-Cada opción da o quita puntos (de −12 a +12). Una acción riesgosa que falla resta 5. Al resolver
-la misión se suma el bonus de la dificultad. Una decisión es *correcta* si suma puntos; la
-**eficiencia** es `decisiones correctas / eventos × 100`.
+Cada opción suma o resta puntos (entre −12 y +12). Si una acción riesgosa falla, resta 5.
+Al resolver la misión se suma el bonus de la dificultad. Una decisión es *correcta* si suma
+puntos, y la **eficiencia** es `decisiones correctas / eventos × 100`.
 
 ## Algoritmo propio: índice de riesgo ponderado
 
-Función: `eventos.indice_riesgo()` y `eventos.algoritmo_propio()`.
+Está en `eventos.indice_riesgo()`.
 
-**Objetivo:** resumir en un solo número qué tan cerca está la misión del colapso, dando más
+**Objetivo:** resumir en un solo número qué tan cerca está la misión del colapso, dándole más
 importancia a los recursos más críticos.
 
 **Fórmula**
 
 ```
-riesgo = Σ  peso_i × (100 − valor_i)
+riesgo = suma de  peso_i * (100 - valor_i)
 ```
 
 | Recurso | Peso |
@@ -97,27 +100,25 @@ riesgo = Σ  peso_i × (100 − valor_i)
 | Alimentos | 0.2 |
 | Comunicación | 0.1 |
 
-Los pesos suman 1.0, así que el riesgo va de **0** (todos al 100 %) a **100** (todos en 0).
+Los pesos suman 1.0, así que el riesgo va de 0 (todo al 100 %) a 100 (todo en 0).
 
-**Niveles:** `BAJO` (< 25), `MEDIO` (25 a < 50), `ALTO` (≥ 50).
+**Niveles:** `BAJO` (menos de 25), `MEDIO` (de 25 a menos de 50) y `ALTO` (50 o más).
 
 **Pasos**
-1. Para cada recurso calcular cuánto le falta: `100 − valor`.
-2. Multiplicar esa carencia por el peso del recurso.
-3. Sumar los resultados.
-4. Clasificar el total en BAJO / MEDIO / ALTO.
+1. Para cada recurso se calcula cuánto le falta: `100 - valor`.
+2. Se multiplica esa carencia por el peso del recurso.
+3. Se suman los resultados.
+4. Se clasifica el total en BAJO, MEDIO o ALTO.
 
 **Ejemplo:** Energía 100, Agua 80, Alimentos 70, Comunicación 90
-→ `0.4·0 + 0.3·20 + 0.2·30 + 0.1·10 = 13.0` → nivel **BAJO**.
+→ `0.4*0 + 0.3*20 + 0.2*30 + 0.1*10 = 13.0` → nivel **BAJO**.
 
-**Complejidad:** O(n), con n = número de recursos (4).
+**Dónde se usa:** al terminar una simulación en consola, en las estadísticas de consola y en
+la tarjeta *Riesgo* de la interfaz gráfica.
 
-**Dónde se usa:** al terminar una simulación en consola, en las estadísticas de consola y en la
-tarjeta *Riesgo* de la interfaz gráfica.
+## Pruebas
 
-## Casos de prueba
-
-Se ejecutan con `python tests.py` (usa `unittest` y no escribe archivos en la carpeta del proyecto).
+Se ejecutan con `python tests.py`. Usan `unittest` y no dejan archivos en la carpeta del proyecto.
 
 **Algoritmo propio**
 
@@ -132,33 +133,20 @@ Se ejecutan con `python tests.py` (usa `unittest` y no escribe archivos en la ca
 | 0 / 0 / 0 / 0 | 100.0 | ALTO |
 | Energía 0, resto 100 | 40.0 | MEDIO |
 
-**Otros grupos de pruebas**
+**Otros grupos**
 
-| Grupo | Qué verifica |
+| Grupo | Qué comprueba |
 |---|---|
-| Recursos | límites 0–100, valores iniciales aleatorios dentro del rango de cada dificultad |
-| Reglas | cada estado, los bordes (Energía 19 vs 20, Agua 14, recurso 29), meta por dificultad, bonus, estado final inmutable |
-| Eventos | datos válidos de todos los eventos, orden aleatorio de opciones sin alterar la lista original, el azar depende de los recursos, acción riesgosa que falla y que acierta, recursos siempre entre 0 y 100 en miles de pasos, Difícil resuelve menos que Fácil |
-| Progreso (CSV) | guardar y cargar, archivo inexistente, archivo dañado, borrar, nombre de archivo seguro |
-| Entradas y usuarios | entradas vacías / texto / fuera de rango, login correcto, bloqueo tras 3 intentos, operador duplicado, roles |
+| Recursos | límites de 0 a 100 y valores iniciales dentro del rango de cada dificultad |
+| Reglas | cada estado, los casos límite (Energía 19 y 20, Agua 14, recurso 29), la meta y el bonus por dificultad, y que un estado final no cambia |
+| Eventos | datos válidos, orden aleatorio de opciones sin cambiar la lista original, azar según los recursos, acción riesgosa que falla y que acierta, recursos siempre entre 0 y 100, y que Difícil se resuelve menos que Fácil |
+| Progreso (CSV) | guardar, cargar, archivo inexistente, archivo dañado, borrar y nombre de archivo seguro |
+| Historial (JSON) | un archivo por usuario, las misiones se acumulan sin duplicarse, archivo inexistente o dañado |
+| Entradas y usuarios | entradas vacías, con texto o fuera de rango; login correcto; bloqueo tras 3 intentos; operador repetido; roles; guardado en `usuarios.json` |
 
-## Requisitos del reto cubiertos
+## Extras
 
-- **Funciones propias (más de 6):** `crear_mision`, `generar_evento`, `aplicar_opcion`, `evaluar_reglas`,
-  `indice_riesgo`, `algoritmo_propio`, `simular`, `calcular_estadisticas`, `guardar_progreso`, entre otras.
-- **Lista:** el historial de acciones. **Diccionario:** la misión, los recursos y los operadores.
-- **`for`:** efectos, desgaste y simulación. **`while`:** validación de entradas en `utilidades.py`.
-- **`if / elif / else`:** reglas de estado y niveles de riesgo.
-- **`random`:** valores iniciales, elección y orden de eventos, variación de efectos, fallos y desgaste.
-
-## Funciones avanzadas
-
-- **TXT / CSV:** reporte en TXT y progreso por operador en `progreso_<usuario>.csv`.
-- **tkinter:** interfaz gráfica con tema oscuro, barras animadas e historial en vivo.
-- **Dificultad:** Fácil, Normal y Difícil (tabla arriba).
-- **Permisos:** el rol `admin` ve el botón *Operadores* para listar usuarios y borrar su progreso guardado.
-
-## Limitaciones
-
-- Los operadores creados viven solo en memoria: al cerrar el programa solo queda `admin`.
-- Las contraseñas no están cifradas; es un proyecto académico.
+- **TXT, CSV y JSON:** reporte en TXT, operadores en `usuarios.json`, y dentro de la carpeta `datos/` el progreso de cada operador (`progreso_<usuario>.csv`) y su historial (`historial_<usuario>.json`).
+- **tkinter:** interfaz con tema oscuro, barras animadas e historial en vivo.
+- **Dificultad:** Fácil, Normal y Difícil.
+- **Permisos:** solo el rol `admin` ve el botón *Operadores*, para listar usuarios y borrar su progreso.

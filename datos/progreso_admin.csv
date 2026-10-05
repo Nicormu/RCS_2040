@@ -1,0 +1,24 @@
+﻿tipo,clave,valor
+meta,operador,admin
+meta,estado,FALLIDA
+meta,dificultad,Normal
+meta,id,2026-10-04 20:24:39
+contador,puntos,17
+contador,eventos_procesados,9
+contador,decisiones_correctas,5
+contador,decisiones_incorrectas,4
+recurso,Energía,43
+recurso,Agua,51
+recurso,Alimentos,0
+recurso,Comunicación,95
+historial,1,Misión creada (dificultad Normal)
+historial,2,Pérdida de comunicaciones: Reiniciar el módulo de comunicaciones (riesgoso) (+10 pts)
+historial,3,Fallo en el transporte de suministros: Racionar las reservas (+3 pts)
+historial,4,Impacto de meteorito en los paneles: Reasignar las baterías de emergencia (+6 pts)
+historial,5,Interferencia en la red de sensores: Instalar un repetidor temporal (+9 pts)
+historial,6,Falla energética: Activar generador de respaldo (+10 pts)
+historial,7,Cápsula de suministros a la deriva: Dejarla sin abrir (-2 pts)
+historial,8,Fallo en el transporte de suministros: No hacer nada (-10 pts)
+historial,9,Falla energética: Reiniciar el reactor principal (riesgoso) (-5 pts) ¡FALLÓ!
+historial,10,Cámara de frío averiada: Descartar lo dañado (-4 pts)
+historial,11,MISIÓN FALLIDA: un recurso llegó a 0

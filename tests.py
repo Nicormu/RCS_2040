@@ -1,4 +1,4 @@
-"""Casos de prueba de RCS. Ejecutar: python tests.py"""
+"""Pruebas de RCS. Se ejecutan con:  python tests.py"""
 import os
 import tempfile
 import unittest
@@ -13,12 +13,12 @@ from main import crear_mision
 
 
 def todos(valor):
-    """Diccionario con todos los recursos al mismo valor."""
+    """Diccionario con todos los recursos en el mismo valor."""
     return {n: valor for n in recursos.NOMBRES}
 
 
 def mision_con(valores=None, **cambios):
-    """Misión de prueba con recursos y campos a la medida."""
+    """Misión de prueba con los recursos y campos que se necesiten."""
     m = crear_mision("test")
     if valores:
         m["recursos"] = dict(valores)
@@ -27,7 +27,7 @@ def mision_con(valores=None, **cambios):
 
 
 class TestAlgoritmoRiesgo(unittest.TestCase):
-    """Algoritmo propio: riesgo = Σ peso × (100 − valor)."""
+    """Algoritmo propio: riesgo = suma de peso * (100 - valor)."""
 
     def test_ideal_es_cero(self):
         self.assertAlmostEqual(eventos.indice_riesgo(todos(100)), 0.0)
@@ -77,6 +77,7 @@ class TestRecursos(unittest.TestCase):
 
 class TestReglas(unittest.TestCase):
     def estado(self, valores, **extra):
+        """Evalúa las reglas de una misión de prueba y devuelve su estado."""
         m = mision_con(valores, **extra)
         eventos.evaluar_reglas(m)
         return m["estado"]
@@ -118,7 +119,8 @@ class TestReglas(unittest.TestCase):
 
 class TestEventos(unittest.TestCase):
     def setUp(self):
-        p = patch("reportes.guardar_progreso")  # no escribir archivos
+        # Evita que las pruebas escriban archivos CSV
+        p = patch("reportes.guardar_progreso")
         p.start()
         self.addCleanup(p.stop)
 
@@ -170,17 +172,19 @@ class TestEventos(unittest.TestCase):
         m = mision_con(todos(80), dificultad="Normal")
         ev = {"nombre": "X", "recurso": "Energía",
               "opciones": [eventos.op("riesgo", 12, 0.5, Energía=+20, Agua=-10)]}
+        # random() = 0.99 fuerza el fallo
         with patch("eventos.random.random", return_value=0.99):
             res = eventos.aplicar_opcion(m, ev, 0)
         self.assertFalse(res["exito"])
         self.assertEqual(res["puntos"], eventos.FALLO_PUNTOS)
-        self.assertLessEqual(m["recursos"]["Energía"], 80)  # sin mejora
-        self.assertLess(m["recursos"]["Agua"], 80)          # el costo sí se paga
+        self.assertLessEqual(m["recursos"]["Energía"], 80)  # no hubo mejora
+        self.assertLess(m["recursos"]["Agua"], 80)          # el costo sí se pagó
         self.assertIn("FALLÓ", m["historial"][-1])
 
     def test_accion_riesgosa_puede_salir_bien(self):
         m = mision_con(todos(80), dificultad="Normal")
         ev = {"nombre": "X", "recurso": "Energía", "opciones": [eventos.op("riesgo", 12, 0.5, Energía=+20)]}
+        # random() = 0.0 fuerza el éxito
         with patch("eventos.random.random", return_value=0.0):
             res = eventos.aplicar_opcion(m, ev, 0)
         self.assertTrue(res["exito"])
@@ -192,6 +196,27 @@ class TestEventos(unittest.TestCase):
                 m = crear_mision("test", dif)
                 eventos.simular(m, 20)
                 self.assertTrue(all(0 <= v <= 100 for v in m["recursos"].values()), (dif, m["recursos"]))
+
+    def test_simular_no_pasa_de_la_meta(self):
+        # Fácil: meta 8. Con 5 procesados solo faltan 3, aunque se pidan 20.
+        m = mision_con(todos(100), dificultad="Fácil", eventos_procesados=5)
+        self.assertEqual(eventos.eventos_restantes(m), 3)
+        self.assertEqual(eventos.simular(m, 20), 3)
+        self.assertEqual(m["eventos_procesados"], 8)
+
+    def test_simular_se_suma_a_los_eventos_actuales(self):
+        m = mision_con(todos(100), dificultad="Fácil")
+        eventos.simular(m, 3)
+        self.assertEqual(m["eventos_procesados"], 3)
+        self.assertEqual(eventos.eventos_restantes(m), 5)
+        eventos.simular(m, 20)
+        self.assertLessEqual(m["eventos_procesados"], 8)
+
+    def test_simular_sin_eventos_restantes(self):
+        m = mision_con(todos(80), dificultad="Normal", eventos_procesados=10, estado="ALERTA")
+        self.assertEqual(eventos.eventos_restantes(m), 0)
+        self.assertEqual(eventos.simular(m, 5), 0)
+        self.assertEqual(m["eventos_procesados"], 10)
 
     def test_simular_se_detiene_en_estado_final(self):
         m = mision_con(todos(80), estado="FALLIDA")
@@ -210,6 +235,7 @@ class TestEventos(unittest.TestCase):
 
 class TestProgreso(unittest.TestCase):
     def setUp(self):
+        # Trabaja en una carpeta temporal para no ensuciar el proyecto
         self.viejo = os.getcwd()
         self.tmp = tempfile.TemporaryDirectory()
         os.chdir(self.tmp.name)
@@ -224,14 +250,46 @@ class TestProgreso(unittest.TestCase):
         reportes.registrar(m, "algo (+3 pts)")
         reportes.guardar_progreso(m)
         c = reportes.cargar_progreso("ana")
-        for clave in ("recursos", "dificultad", "puntos", "historial", "estado"):
+        for clave in ("recursos", "dificultad", "puntos", "historial", "estado", "id"):
             self.assertEqual(c[clave], m[clave], clave)
+
+    def test_historial_por_usuario(self):
+        ana, luis = crear_mision("ana"), crear_mision("luis")
+        reportes.registrar(ana, "accion de ana (+5 pts)")
+        reportes.guardar_progreso(ana)
+        reportes.guardar_progreso(luis)
+        self.assertTrue(os.path.exists(reportes.ruta_historial("ana")))
+        self.assertTrue(os.path.exists(reportes.ruta_historial("luis")))
+        acciones = reportes.cargar_historial("ana")[0]["acciones"]
+        self.assertIn("accion de ana (+5 pts)", acciones)
+        self.assertNotIn("accion de ana (+5 pts)", reportes.cargar_historial("luis")[0]["acciones"])
+
+    def test_historial_acumula_misiones(self):
+        m1 = crear_mision("ana")
+        m1["id"] = "2026-01-01 10:00:00"
+        reportes.guardar_progreso(m1)
+        reportes.registrar(m1, "otra accion")
+        reportes.guardar_progreso(m1)           # misma misión: se actualiza, no se duplica
+        m2 = crear_mision("ana")
+        m2["id"] = "2026-01-02 10:00:00"
+        reportes.guardar_progreso(m2)           # misión nueva: se agrega
+        misiones = reportes.cargar_historial("ana")
+        self.assertEqual(len(misiones), 2)
+        self.assertIn("otra accion", misiones[0]["acciones"])
+
+    def test_historial_inexistente_o_danado(self):
+        self.assertEqual(reportes.cargar_historial("nadie"), [])
+        reportes.crear_carpeta()
+        with open(reportes.ruta_historial("ana"), "w", encoding="utf-8") as f:
+            f.write("{roto")
+        self.assertEqual(reportes.cargar_historial("ana"), [])
 
     def test_no_existe(self):
         self.assertFalse(reportes.existe_progreso("nadie"))
         self.assertIsNone(reportes.cargar_progreso("nadie"))
 
     def test_archivo_danado(self):
+        reportes.crear_carpeta()
         with open(reportes.ruta_progreso("ana"), "w", encoding="utf-8") as f:
             f.write("tipo,clave,valor\ncontador,puntos,abc\n")
         self.assertIsNone(reportes.cargar_progreso("ana"))
@@ -243,7 +301,14 @@ class TestProgreso(unittest.TestCase):
         self.assertFalse(reportes.borrar_progreso("ana"))
 
     def test_nombre_de_archivo_seguro(self):
-        self.assertEqual(reportes.ruta_progreso("a/b..c"), "progreso_abc.csv")
+        ruta = reportes.ruta_progreso("a/b..c")
+        self.assertEqual(os.path.basename(ruta), "progreso_abc.csv")
+
+    def test_archivos_van_en_la_carpeta_de_datos(self):
+        reportes.guardar_progreso(crear_mision("ana"))
+        self.assertTrue(os.path.isfile(os.path.join("datos", "progreso_ana.csv")))
+        self.assertTrue(os.path.isfile(os.path.join("datos", "historial_ana.json")))
+        self.assertEqual(os.listdir("."), ["datos"])  # nada suelto fuera de la carpeta
 
     def test_estadisticas(self):
         m = mision_con(todos(80), eventos_procesados=4, decisiones_correctas=3, decisiones_incorrectas=1)
@@ -271,9 +336,29 @@ class TestValidacionesYUsuarios(unittest.TestCase):
 
     def test_crear_operador(self):
         self.addCleanup(usuarios.operadores.pop, "nuevo_t", None)
-        with patch("builtins.input", side_effect=["nuevo_t", "abcd"]):
-            self.assertTrue(usuarios.crear_operador())
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(usuarios, "ARCHIVO", os.path.join(tmp, "u.json")):
+                with patch("builtins.input", side_effect=["nuevo_t", "abcd"]):
+                    self.assertTrue(usuarios.crear_operador())
         self.assertEqual(usuarios.operadores["nuevo_t"], "abcd")
+
+    def test_operadores_se_guardan_en_json(self):
+        self.addCleanup(usuarios.operadores.pop, "persistente", None)
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(usuarios, "ARCHIVO", os.path.join(tmp, "u.json")):
+                usuarios.registrar("persistente", "clave1")
+                cargados = usuarios.cargar_operadores()
+        self.assertEqual(cargados["persistente"], "clave1")
+        self.assertEqual(cargados["admin"], "1234")
+
+    def test_json_inexistente_o_danado(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ruta = os.path.join(tmp, "u.json")
+            with patch.object(usuarios, "ARCHIVO", ruta):
+                self.assertEqual(usuarios.cargar_operadores(), {"admin": "1234"})
+                with open(ruta, "w", encoding="utf-8") as f:
+                    f.write("esto no es json")
+                self.assertEqual(usuarios.cargar_operadores(), {"admin": "1234"})
 
     def test_operador_duplicado(self):
         with patch("builtins.input", side_effect=["admin"]):

@@ -1,14 +1,17 @@
 """ROBOYORK CONTROL SYSTEM (RCS) - programa principal."""
 from utilidades import leer_entero
-import usuarios, recursos, eventos, reportes
+import usuarios
+import recursos
+import eventos
+import reportes
 
 ESTADOS = ["INICIALIZANDO", "OPERATIVA", "ALERTA", "CRÍTICA", "RESUELTA", "FALLIDA"]
 
 
 def crear_mision(operador, dificultad="Normal"):
-    """Crea el diccionario que guarda todo el estado de la misión.
-    Los recursos iniciales son aleatorios según la dificultad."""
+    """Crea el diccionario que guarda todo el estado de la misión."""
     mision = {
+        "id": reportes.nuevo_id(),
         "operador": operador,
         "dificultad": dificultad,
         "recursos": recursos.crear_recursos(dificultad),
@@ -23,8 +26,26 @@ def crear_mision(operador, dificultad="Normal"):
     mision["estado"] = "OPERATIVA"
     return mision
 
+def main():
+    """Abre la interfaz gráfica; si no hay tkinter, usa la consola."""
+    try:
+        # Se importa aquí porque gui.py importa crear_mision desde este archivo
+        import gui
+    except ImportError:
+        print("tkinter no disponible: iniciando modo consola.")
+        menu_consola()
+        return
+    gui.App().mainloop()
+
+
+if __name__ == "__main__":
+    main()
+    
+
+#   MODO CONSOLA
 
 def panel_principal(operador):
+    """Menú de la consola con las 8 opciones. Se repite hasta cerrar sesión."""
     mision = None
     while True:
         print("\n=== PANEL PRINCIPAL ===")
@@ -50,13 +71,21 @@ def panel_principal(operador):
         elif opcion == 8:
             return
         elif mision is None:
-            print(" Primero crea una misión (opción 1).")
+            # Todas las demás opciones necesitan una misión
+            print("  Primero crea una misión (opción 1).")
         elif opcion == 2:
             recursos.mostrar_recursos(mision["recursos"])
         elif opcion == 3:
             eventos.procesar_evento(mision)
         elif opcion == 4:
-            n = leer_entero("¿Cuántos eventos simular? (1-20): ", 1, 20)
+            restantes = eventos.eventos_restantes(mision)
+            if mision["estado"] in eventos.FINALES:
+                print(f"  La misión ya terminó ({mision['estado']}).")
+                continue
+            if restantes == 0:
+                print("  Ya se llegó a la meta de eventos. Procesa eventos a mano para recuperar los recursos.")
+                continue
+            n = leer_entero(f"¿Cuántos eventos simular? (1-{restantes}): ", 1, restantes)
             hechos = eventos.simular(mision, n)
             riesgo, nivel = eventos.algoritmo_propio(mision)
             print(f"Simulados {hechos} eventos. Estado: {mision['estado']} | Riesgo: {riesgo} ({nivel})")
@@ -72,7 +101,7 @@ def panel_principal(operador):
 
 
 def menu_consola():
-    """Modo consola (respaldo si tkinter no está disponible)."""
+    """Modo consola: se usa cuando tkinter no está disponible."""
     while True:
         print("\nROBOYORK CONTROL SYSTEM\n1. Iniciar sesión\n2. Crear operador\n3. Salir")
         opcion = leer_entero("Opción: ", 1, 3)
@@ -86,18 +115,3 @@ def menu_consola():
         else:
             print("Hasta pronto.")
             break
-
-
-def main():
-    """Abre directamente la interfaz gráfica; si no hay tkinter, usa la consola."""
-    try:
-        import gui  # import tardío: gui.py importa crear_mision desde este archivo
-    except ImportError:
-        print("tkinter no disponible: iniciando modo consola.")
-        menu_consola()
-        return
-    gui.App().mainloop()
-
-
-if __name__ == "__main__":
-    main()

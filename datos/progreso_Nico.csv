@@ -1,0 +1,23 @@
+﻿tipo,clave,valor
+meta,operador,Nico
+meta,estado,RESUELTA
+meta,dificultad,Fácil
+meta,id,2026-10-04 19:47:33
+contador,puntos,59
+contador,eventos_procesados,8
+contador,decisiones_correctas,7
+contador,decisiones_incorrectas,1
+recurso,Energía,69
+recurso,Agua,86
+recurso,Alimentos,99
+recurso,Comunicación,81
+historial,1,Misión creada (dificultad Fácil)
+historial,2,Tormenta solar: Desviar energía a los paneles (riesgoso) (+8 pts)
+historial,3,Intrusión informática: Aislar la red y restaurar copias (+8 pts)
+historial,4,Cámara de frío averiada: Mover los alimentos a otro módulo (+8 pts)
+historial,5,Tormenta solar: Apagar sistemas no esenciales (+4 pts)
+historial,6,Plaga en el cultivo hidropónico: Ignorar la plaga (-10 pts)
+historial,7,Pérdida de comunicaciones: Reorientar la antena satelital (+10 pts)
+historial,8,Fallo en el transporte de suministros: Enviar ruta alterna de emergencia (+10 pts)
+historial,9,Plaga en el cultivo hidropónico: Tratamiento experimental (riesgoso) (+11 pts)
+historial,10,MISIÓN RESUELTA (+10 pts de bonus)
